@@ -1,0 +1,18 @@
+{
+    "Alaska":0,
+    "Allegiant":1,
+    "American":2,
+    "Avelo":3,
+    "Breeze":4,
+    "Delta":5,
+    "Eastern":6,
+    "Emirates":7,
+    "Frontier":8,
+    "Hawaiian":9,
+    "JetBlue":10,
+    "Southwest":11,
+    "Sun Country Airlines":12,
+    "Spirit":13,
+    "United":14,
+    "WestJet":15
+}

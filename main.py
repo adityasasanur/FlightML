@@ -9,6 +9,8 @@ from selenium.webdriver.chrome.service import Service
 
 
 def handler(event=None, context=None):
+
+    #CHROME OPTIONS
     options = webdriver.ChromeOptions()
     options.binary_location = '/opt/chrome/chrome'
     options.add_argument('--headless')
@@ -25,35 +27,39 @@ def handler(event=None, context=None):
     options.add_argument("--remote-debugging-port=9222")
     s = Service('/opt/chromedriver')
     driver = webdriver.Chrome(service=s, options=options)
-    links = []
+    
+    NUM_LINKS = 2
+    NUM_FLIGHTS = 2
 
-    with open('flightLinks.csv') as csvfile:
+    links = []
+    with open('utils/flightLinks.csv') as csvfile:
         reader = csv.reader(csvfile)
         for row in reader:
             tomorrow = datetime.date.today() + datetime.timedelta(days=1)
             links.append(row[0] + tomorrow.strftime("%Y-%m-%d"))
 
-    for url in links[:2]:
-        driver.get(url)
-        try:
-            elements = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "yR1fYc")))
+    for url in links[:NUM_LINKS]:
 
-            total = min(1, len(elements))
-            for i in range(total):
-                try:
-                    WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "yR1fYc")))[i].click()
-                except:
-                    continue
-                try:
-                    prices = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "ke9kZe-LkdAo-RbRzK-JNdkSc.pKrx3d")))
-                except:
-                    continue
-                print(len(prices))
-                for price in prices[-60:]:
-                    print(price.get_attribute("aria-label"))
-                print("NEXT")
-                driver.back()
-        except:
-            continue
+        #RETRIEVE POSSIBLE FLIGHTS FOR EACH AIRPORT COMBINATION
+        driver.get(url)
+        try:elements = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "yR1fYc")))
+        except: continue
+
+        #ITERATE THROUGH POSSIBLE FLIGHTS
+        for i in range(min(NUM_FLIGHTS, len(elements))):
+
+            #GET FLIGHT DATA
+            try: WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "yR1fYc")))[i].click()
+            except: continue
+            try: prices = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "ke9kZe-LkdAo-RbRzK-JNdkSc.pKrx3d")))
+            except: continue
+
+            print(len(prices))
+            for price in prices[-60:]:
+                print(price.get_attribute("aria-label"))
+            print("NEXT")
+            driver.back()
+
+        
 
     driver.quit()

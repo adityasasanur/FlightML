@@ -14,5 +14,5 @@ RUN pip install selenium
 COPY --from=build /opt/chrome-linux /opt/chrome
 COPY --from=build /opt/chromedriver /opt/
 COPY main.py ./
-COPY flightLinks.csv ./
+COPY utils ./
 CMD [ "main.handler" ]
