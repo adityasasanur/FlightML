@@ -11,11 +11,14 @@ ENV PATH=$PATH:$CHROME_DRIVER
 # Set environment variables for running headless Chromium
 ENV DISPLAY=:99
 
-# Install Selenium Python package
-RUN pip install selenium
-
 # Set up a working directory inside the container
 WORKDIR /app
+
+# Copy the requirements file
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy your Python application code into the container
 COPY test.py .
