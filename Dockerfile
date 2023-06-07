@@ -14,8 +14,9 @@ ENV DISPLAY=:99
 # Set up a working directory inside the container
 WORKDIR /app
 
-# Copy the requirements file
+# Copy requied files
 COPY requirements.txt .
+COPY utils/flightlinks.csv ./utils
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt

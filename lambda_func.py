@@ -17,7 +17,7 @@ driver = webdriver.Chrome(options=chrome_options)
 
 links = []
 
-with open('flightLinks.csv') as csvfile:
+with open('utils/flightLinks.csv') as csvfile:
     reader = csv.reader(csvfile)
     for row in reader:
         tomorrow = datetime.date.today() + datetime.timedelta(days=1)
