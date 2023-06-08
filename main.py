@@ -1,6 +1,9 @@
 import csv
 import datetime
+import json
 from tempfile import mkdtemp
+import time
+import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -9,7 +12,7 @@ from selenium.webdriver.chrome.service import Service
 
 
 def handler(event=None, context=None):
-
+    start_time = time.time()
     #CHROME OPTIONS
     options = webdriver.ChromeOptions()
     options.binary_location = '/opt/chrome/chrome'
@@ -28,8 +31,8 @@ def handler(event=None, context=None):
     s = Service('/opt/chromedriver')
     driver = webdriver.Chrome(service=s, options=options)
     
-    NUM_LINKS = 2
-    NUM_FLIGHTS = 2
+    NUM_LINKS = 20
+    NUM_FLIGHTS = 3
 
     links = []
     with open('utils/flightLinks.csv') as csvfile:
@@ -38,28 +41,162 @@ def handler(event=None, context=None):
             tomorrow = datetime.date.today() + datetime.timedelta(days=1)
             links.append(row[0] + tomorrow.strftime("%Y-%m-%d"))
 
+    cols = ["departure_airport_int",
+            "arriving_airport_int",
+            "departure_time_float",
+            "airline_int",
+            "date_year",
+            "date_month",
+            "date_day",
+            "date_dow",
+            "duration_hours",
+            "numStops",
+            "price_min_day",
+            "price_min",
+            "Day 0",
+            "Day 1",
+            "Day 2",
+            "Day 3",
+            "Day 4",
+            "Day 5",
+            "Day 6",
+            "Day 7",
+            "Day 8",
+            "Day 9",
+            "Day 10",
+            "Day 11",
+            "Day 12",
+            "Day 13",
+            "Day 14",
+            "Day 15",
+            "Day 16",
+            "Day 17",
+            "Day 18",
+            "Day 19",
+            "Day 20",
+            "Day 21",
+            "Day 22",
+            "Day 23",
+            "Day 24",
+            "Day 25",
+            "Day 26",
+            "Day 27",
+            "Day 28",
+            "Day 29",
+            "Day 30",
+            "Day 31",
+            "Day 32",
+            "Day 33",
+            "Day 34",
+            "Day 35",
+            "Day 36",
+            "Day 37",
+            "Day 38",
+            "Day 39",
+            "Day 40",
+            "Day 41",
+            "Day 42",
+            "Day 43",
+            "Day 44",
+            "Day 45",
+            "Day 46",
+            "Day 47",
+            "Day 48",
+            "Day 49",
+            "Day 50",
+            "Day 51",
+            "Day 52",
+            "Day 53",
+            "Day 54",
+            "Day 55",
+            "Day 56",
+            "Day 57",
+            "Day 58",
+            "Day 59",
+            "Day 60",
+            ]
+    dict_arr = []
     for url in links[:NUM_LINKS]:
 
         #RETRIEVE POSSIBLE FLIGHTS FOR EACH AIRPORT COMBINATION
         driver.get(url)
-        try:elements = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "yR1fYc")))
+        try: elements = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "yR1fYc")))
         except: continue
 
         #ITERATE THROUGH POSSIBLE FLIGHTS
         for i in range(min(NUM_FLIGHTS, len(elements))):
 
             #GET FLIGHT DATA
-            try: WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "yR1fYc")))[i].click()
-            except: continue
-            try: prices = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "ke9kZe-LkdAo-RbRzK-JNdkSc.pKrx3d")))
-            except: continue
+            try:
+                WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "yR1fYc")))[i].click()
+            except Exception:
+                print("couldn't get to the link")
+                continue
 
-            print(len(prices))
-            for price in prices[-60:]:
-                print(price.get_attribute("aria-label"))
-            print("NEXT")
+            #PARSE PRICES
+            try:
+                prices = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "ke9kZe-LkdAo-RbRzK-JNdkSc.pKrx3d")))
+                priceGraph = []
+                for price in prices[-61:][::-1]:
+                    price = price.get_attribute("aria-label")
+                    priceGraph.append(int(price.split(' ')[-1][1:]))
+                price_min = min(priceGraph)
+                priceGraph += [None]*(61 - len(priceGraph))
+                price_min_day = priceGraph.index(price_min)
+            except:
+                print("couldn't get to the flight")
+                print("url: ", url)
+                print(i)
+                driver.back()
+                continue
+
+            try:
+                #PARSE STOPS
+                stopWrapper = driver.find_element(By.CLASS_NAME, "EfT7Ae.AdWm1c.tPgKwe")
+                stops = stopWrapper.find_element(By.CLASS_NAME, "ogfYpf").get_attribute("aria-label").split(" ")[0]
+                numStops = int(stops) if stops.isnumeric() else 0
+
+                #PARSE DURATION(HOURS)
+                duration = driver.find_element(By.CLASS_NAME, "gvkrdb.AdWm1c.tPgKwe.ogfYpf").get_attribute("aria-label").split(' ')
+                duration_hours = duration[2]
+
+                #GET DATE
+                date_year, date_month, date_day, date_dow = tomorrow.year%2000, tomorrow.month, tomorrow.day, tomorrow.weekday()
+
+                #GET AIRLINE
+                airline = driver.find_element(By.CLASS_NAME, "sSHqwe.tPgKwe.ogfYpf").find_element(By.TAG_NAME, "span").get_attribute("innerHTML")
+                airlineEncoding = json.load(open("utils/airlineEncodings.txt"))
+                airline_int = airlineEncoding[airline]
+
+                #GET DEPARTURE
+                departure_time = driver.find_element(By.XPATH,"//span[@jscontroller=\"cNtv4b\"]").find_element(By.TAG_NAME, "span").get_attribute("innerHTML").split('\u202f')
+                departure_time_hhmm = departure_time[0].split(":")
+                departure_time_float = round(int(departure_time_hhmm[0]) + 12 * (departure_time[1] == "PM") + int(departure_time_hhmm[1])/60, 3)
+
+                #GET DEPARTING/ARRIVING AIRPORT
+                departure_airport = driver.find_element(By.XPATH,"(//span[@jscontroller=\"cNtv4b\"])[3]").get_attribute("innerHTML")
+                arriving_airport = driver.find_element(By.XPATH,"(//span[@jscontroller=\"cNtv4b\"])[4]").get_attribute("innerHTML")
+                airportEncoding = json.load(open("utils/airportEncodings.txt"))
+                departure_airport_int = airportEncoding[departure_airport]
+                arriving_airport_int = airportEncoding[arriving_airport]
+
+                FINAL_DATA_ROW = [departure_airport_int, arriving_airport_int, departure_time_float, airline_int, date_year, date_month, date_day, date_dow, duration_hours, numStops, price_min_day, price_min] + priceGraph
+
+                row = {}
+                for col,val in zip(cols,FINAL_DATA_ROW):
+                    row[col] = val
+                dict_arr.append(row)
+            except Exception:
+                print("couldn't find data")
+                print("url: ", url)
+                print(i)
+                driver.back()
+                continue
+
             driver.back()
 
-        
-
+    df = pd.DataFrame.from_dict(dict_arr)
+    df.to_csv("output.csv")
     driver.quit()
+    end_time = time.time()
+    print('Execution time = %.6f seconds' % (end_time-start_time))
