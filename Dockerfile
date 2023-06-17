@@ -10,9 +10,12 @@ RUN yum install atk cups-libs gtk3 libXcomposite alsa-lib \
     libXcursor libXdamage libXext libXi libXrandr libXScrnSaver \
     libXtst pango at-spi2-atk libXt xorg-x11-server-Xvfb \
     xorg-x11-xauth dbus-glib dbus-glib-devel -y
-RUN pip install selenium
+
 COPY --from=build /opt/chrome-linux /opt/chrome
 COPY --from=build /opt/chromedriver /opt/
 COPY main.py ./
-COPY utils ./
+COPY utils/airlineEncodings.json ./
+COPY utils/airportEncodings.json ./
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
 CMD [ "main.handler" ]

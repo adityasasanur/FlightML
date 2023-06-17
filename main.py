@@ -1,6 +1,7 @@
 import csv
 import datetime
 import json
+import boto3
 from tempfile import mkdtemp
 import time
 import pandas as pd
@@ -13,9 +14,11 @@ from selenium.webdriver.chrome.service import Service
 
 def handler(event=None, context=None):
     start_time = time.time()
+
     #CHROME OPTIONS
     options = webdriver.ChromeOptions()
     options.binary_location = '/opt/chrome/chrome'
+
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument("--disable-gpu")
@@ -24,23 +27,22 @@ def handler(event=None, context=None):
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-dev-tools")
     options.add_argument("--no-zygote")
+    options.add_argument("--disable-browser-side-navigation")
+    options.add_argument("enable-automation")
+    options.add_argument("start-maximized")
+    options.page_load_strategy = 'eager'
+
+    options.add_argument("--remote-debugging-port=9222")
     options.add_argument(f"--user-data-dir={mkdtemp()}")
     options.add_argument(f"--data-path={mkdtemp()}")
     options.add_argument(f"--disk-cache-dir={mkdtemp()}")
-    options.add_argument("--remote-debugging-port=9222")
     s = Service('/opt/chromedriver')
     driver = webdriver.Chrome(service=s, options=options)
-    
-    NUM_LINKS = 20
-    NUM_FLIGHTS = 3
 
-    links = []
-    with open('utils/flightLinks.csv') as csvfile:
-        reader = csv.reader(csvfile)
-        for row in reader:
-            tomorrow = datetime.date.today() + datetime.timedelta(days=1)
-            links.append(row[0] + tomorrow.strftime("%Y-%m-%d"))
 
+    NUM_FLIGHTS = 3    
+    links = event.get('links')
+    tomorrow = datetime.date.today() + datetime.timedelta(days=1)
     cols = ["departure_airport_int",
             "arriving_airport_int",
             "departure_time_float",
@@ -116,8 +118,10 @@ def handler(event=None, context=None):
             "Day 60",
             ]
     dict_arr = []
-    for url in links[:NUM_LINKS]:
 
+
+    for url in links:
+        if time.time() - start_time > 870: break
         #RETRIEVE POSSIBLE FLIGHTS FOR EACH AIRPORT COMBINATION
         driver.get(url)
         try: elements = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "yR1fYc")))
@@ -129,7 +133,7 @@ def handler(event=None, context=None):
             #GET FLIGHT DATA
             try:
                 WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "yR1fYc")))[i].click()
-            except Exception:
+            except Exception as e:
                 print("couldn't get to the link")
                 continue
 
@@ -143,7 +147,7 @@ def handler(event=None, context=None):
                 price_min = min(priceGraph)
                 priceGraph += [None]*(61 - len(priceGraph))
                 price_min_day = priceGraph.index(price_min)
-            except:
+            except Exception as e:
                 print("couldn't get to the flight")
                 print("url: ", url)
                 print(i)
@@ -165,7 +169,7 @@ def handler(event=None, context=None):
 
                 #GET AIRLINE
                 airline = driver.find_element(By.CLASS_NAME, "sSHqwe.tPgKwe.ogfYpf").find_element(By.TAG_NAME, "span").get_attribute("innerHTML")
-                airlineEncoding = json.load(open("utils/airlineEncodings.txt"))
+                airlineEncoding = json.load(open("airlineEncodings.json"))
                 airline_int = airlineEncoding[airline]
 
                 #GET DEPARTURE
@@ -176,7 +180,7 @@ def handler(event=None, context=None):
                 #GET DEPARTING/ARRIVING AIRPORT
                 departure_airport = driver.find_element(By.XPATH,"(//span[@jscontroller=\"cNtv4b\"])[3]").get_attribute("innerHTML")
                 arriving_airport = driver.find_element(By.XPATH,"(//span[@jscontroller=\"cNtv4b\"])[4]").get_attribute("innerHTML")
-                airportEncoding = json.load(open("utils/airportEncodings.txt"))
+                airportEncoding = json.load(open("airportEncodings.json"))
                 departure_airport_int = airportEncoding[departure_airport]
                 arriving_airport_int = airportEncoding[arriving_airport]
 
@@ -186,7 +190,7 @@ def handler(event=None, context=None):
                 for col,val in zip(cols,FINAL_DATA_ROW):
                     row[col] = val
                 dict_arr.append(row)
-            except Exception:
+            except Exception as e:
                 print("couldn't find data")
                 print("url: ", url)
                 print(i)
@@ -195,8 +199,13 @@ def handler(event=None, context=None):
 
             driver.back()
 
-    df = pd.DataFrame.from_dict(dict_arr)
-    df.to_csv("output.csv")
     driver.quit()
+    df = pd.DataFrame.from_dict(dict_arr)
+    output = bytes(df.to_csv(lineterminator='\r\n', index=False), encoding='utf-8')
+    s3 = boto3.client('s3')
+    s3.put_object(Body=output, Bucket='flight-data-db', Key=tomorrow.strftime("%Y-%m-%d") + "/" + str(event.get('batch_num')) + '.csv')
     end_time = time.time()
-    print('Execution time = %.6f seconds' % (end_time-start_time))
+    return {
+        'statusCode': 200,
+        'body': json.dumps('Execution time = %.6f seconds' % (end_time-start_time))
+    }
