@@ -200,10 +200,13 @@ def handler(event=None, context=None):
             driver.back()
 
     driver.quit()
+
+    # Put Data into S3
     df = pd.DataFrame.from_dict(dict_arr)
+    print(links)
     output = bytes(df.to_csv(lineterminator='\r\n', index=False), encoding='utf-8')
     s3 = boto3.client('s3')
-    s3.put_object(Body=output, Bucket='flight-data-db', Key=tomorrow.strftime("%Y-%m-%d") + "/" + str(event.get('batch_num')) + '.csv')
+    s3.put_object(Body=output, Bucket='google-flight-data-db', Key=tomorrow.strftime("%Y-%m-%d") + "/" + str(event.get('batch_num')) + '.csv')
     end_time = time.time()
     return {
         'statusCode': 200,

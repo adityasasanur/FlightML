@@ -1,2 +1,6 @@
 testENV.py
 testing.py
+node_modules
+nodejs
+*.json
+.DS_store
