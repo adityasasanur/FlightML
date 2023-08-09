@@ -121,7 +121,6 @@ def handler(event=None, context=None):
 
 
     for url in links:
-        if time.time() - start_time > 870: break
         #RETRIEVE POSSIBLE FLIGHTS FOR EACH AIRPORT COMBINATION
         driver.get(url)
         try: elements = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CLASS_NAME, "yR1fYc")))
